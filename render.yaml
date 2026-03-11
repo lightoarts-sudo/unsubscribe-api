@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: lightochan-unsubscribe
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: SECRET_KEY
+        generateValue: true
+      - key: SHEET_ID
+        sync: false
+      - key: SHEET_NAME
+        value: unsubscribes
+      - key: GOOGLE_CREDENTIALS_JSON
+        sync: false
