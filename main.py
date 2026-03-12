@@ -1,5 +1,5 @@
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from google.oauth2.service_account import Credentials
 import gspread
 import hashlib
@@ -13,7 +13,8 @@ app = FastAPI()
 # ---- 設定 ----
 SECRET_KEY = os.environ.get("SECRET_KEY", "change-me-in-render")
 SHEET_ID   = os.environ.get("SHEET_ID", "")
-SHEET_NAME = os.environ.get("SHEET_NAME", "unsubscribes")
+SHEET_NAME   = os.environ.get("SHEET_NAME", "unsubscribes")
+CLICKS_SHEET = os.environ.get("CLICKS_SHEET", "clicks")
 
 # ---- Google Sheets 連線 ----
 def get_sheet():
@@ -141,6 +142,41 @@ def check_unsubscribed(email: str, token: str):
         return {"email": email, "unsubscribed": len(existing) > 0}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+# ---- 點擊追蹤 API ----
+@app.get("/track")
+def track_click(email: str, token: str, link: str, redirect: str):
+    if not verify_token(email, token):
+        raise HTTPException(status_code=400, detail="無效的追蹤連結")
+
+    try:
+        creds_json = os.environ.get("GOOGLE_CREDENTIALS_JSON", "{}")
+        creds_dict = json.loads(creds_json)
+        scopes = [
+            "https://spreadsheets.google.com/feeds",
+            "https://www.googleapis.com/auth/drive",
+        ]
+        creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
+        client = gspread.authorize(creds)
+        spreadsheet = client.open_by_key(SHEET_ID)
+
+        # 取得或建立 clicks 工作表
+        try:
+            clicks_sheet = spreadsheet.worksheet(CLICKS_SHEET)
+        except Exception:
+            clicks_sheet = spreadsheet.add_worksheet(title=CLICKS_SHEET, rows=1000, cols=4)
+            clicks_sheet.append_row(["email", "link", "redirect_url", "timestamp"])
+
+        clicks_sheet.append_row([
+            email,
+            link,
+            redirect,
+            datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+        ])
+    except Exception as e:
+        print(f"Clicks sheet write error: {e}")
+
+    return RedirectResponse(url=redirect, status_code=302)
 
 # ---- 健康檢查 ----
 @app.get("/")
