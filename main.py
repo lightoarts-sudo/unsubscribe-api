@@ -7,6 +7,7 @@ import hmac
 import os
 import json
 from datetime import datetime
+import pytz
 
 app = FastAPI()
 
@@ -52,7 +53,7 @@ def unsubscribe(email: str, token: str):
         if not existing:
             sheet.append_row([
                 email,
-                datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"),
+                datetime.now(pytz.timezone("Asia/Taipei")).strftime("%Y-%m-%d %H:%M:%S"),
                 "unsubscribed"
             ])
     except Exception as e:
@@ -171,7 +172,7 @@ def track_click(email: str, token: str, link: str, redirect: str):
             email,
             link,
             redirect,
-            datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+            datetime.now(pytz.timezone("Asia/Taipei")).strftime("%Y-%m-%d %H:%M:%S")
         ])
     except Exception as e:
         print(f"Clicks sheet write error: {e}")
